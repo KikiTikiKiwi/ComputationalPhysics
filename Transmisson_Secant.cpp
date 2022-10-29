@@ -21,13 +21,13 @@ typedef vector<Vec> Mat;
 //const double h_bar = 4.; //
 const double v = 13.60; // ev
 const double b = 2; // angstroms
-const double w = 3*2; //angstroms
+const double w = 3; //angstroms
 const double a = b+w; // unit lattice length
 const double A = 3.84; // h_bar/2m
 // const float pahse_E = 1;
 // const float beta_E = 1;
 const int itr = 10000; // max iterations for secant method
-const double tol = 1e-9; // tolerance level for root value
+const double tol = 1e-6; // tolerance level for root value
 
 Mat energies_mn_mx(){
   double output1;
@@ -89,6 +89,17 @@ double func3(double E, double K){
   return output;
 }
 
+double func4(double E){
+  double output;
+  double q;
+  double beta;
+  q = sqrt(E/A);
+  beta = sqrt((v-E)/A);
+  output = (cosh(beta*b)*cos(q*w) - ((pow(q,2) - pow(beta,2))/(2*q*beta))*sinh(beta*b)*sin(q*w));
+  return output;
+}
+
+
 double root_finder(double x1, double x2, double(*function)(double x)){
   double x3;
   double root;
@@ -105,12 +116,13 @@ double root_finder(double x1, double x2, double(*function)(double x)){
   }
   //if gap region, return -1 to signify no real value
   if(isnan(root)){
-    root = 0;
+    root = -1;
     //cout<<root<<endl;
   }
-  else{
-    //cout<<root<<endl;
-  }
+  // else{
+  //   //cout<<root<<endl;
+  // }
+  cout<<root<<endl;
   return root;
 }
 
@@ -128,14 +140,15 @@ double root_finder_k(double x1, double x2, double K, double(*function)(double x,
       break;
     }
   }
+  //cout<<root<<endl;
   // if gap region, return -1 to signify no real value
-  if(isnan(root)){
-    root = 0;
-    //cout<<root<<endl;
-  }
-  else{
-    //cout<<root<<endl;
-  }
+  // if(isnan(root)){
+  //   root = -1;
+  //   //cout<<root<<endl;
+  // }
+  // else{
+  //   //cout<<root<<endl;
+  // }
   return root;
 }
 
@@ -143,9 +156,11 @@ int main(){
   Mat data;
   double E;
   Vec roots1;
+  double dummy_root;
   Vec roots2;
   Mat roots_all;
   int k = 0;
+  int m = 0;
   //int h = 0;
   // Find the max and min energies, then from there use the secant method to find the roots
   data = energies_mn_mx();
@@ -164,35 +179,46 @@ int main(){
   }
   myfile.close();
 
-  while(E <= v*3){
-    E = E + 0.01;
-    roots1.push_back(root_finder(E-0.01,E,&func1));
-    roots2.push_back(root_finder(E-0.01,E,&func2));
-  }
-
-  Vec newRoot1;
-  for(int i=0;i<roots1.size()-1;i++){
-    if(abs(roots1[i] - roots1[i+1]) > 1e-6){
-      if(roots1[i] != 0){
-        newRoot1.push_back(roots1[i]);
-      } else{
-        //cout<<"newRoot for loop"<<endl;
-      }
+  while(E < v){
+    E = E + 1;
+    dummy_root = root_finder(E-1,E,&func1);
+    if(abs(func4(dummy_root) - 1) < 1e-1){
+      roots1.push_back(dummy_root);
     }
-  }
-
-  Vec newRoot2;
-  for(int i=0;i<roots2.size()-1;i++){
-    if(abs(roots2[i] - roots2[i+1]) > 1e-6){
-      if(roots2[i] != 0){
-        newRoot2.push_back(roots2[i]);
-        //cout<<"newRoot2[i]""<<endl;
-      }
+    dummy_root = root_finder(E-1,E,&func2);
+    if(abs(func4(dummy_root) - 1) < 1e-1){
+      roots2.push_back(dummy_root);
     }
+    // roots1.push_back(root_finder(E-1,E,&func1));
+    // roots2.push_back(root_finder(E-1,E,&func2));
+    // cout<<"Top: "<<roots1[m]<<"    M:"<<m<<endl;
+    // cout<<"Bottom: "<<roots2[m]<<"    M:"<<m<<endl;
+    // m = m+1;
   }
 
-  roots_all.push_back(newRoot1);
-  roots_all.push_back(newRoot2);
+  // Vec newRoot1;
+  // for(int i=0;i<roots1.size()-1;i++){
+  //   if(abs(roots1[i] - roots1[i+1]) > 1e-6){
+  //     if(roots1[i] != -1){
+  //       newRoot1.push_back(roots1[i]);
+  //     } else{
+  //       //cout<<"newRoot for loop"<<endl;
+  //     }
+  //   }
+  // }
+  //
+  // Vec newRoot2;
+  // for(int i=0;i<roots2.size()-1;i++){
+  //   if(abs(roots2[i] - roots2[i+1]) > 1e-6){
+  //     if(roots2[i] != -1){
+  //       newRoot2.push_back(roots2[i]);
+  //       //cout<<"newRoot2[i]""<<endl;
+  //     }
+  //   }
+  // }
+
+  roots_all.push_back(roots1);
+  roots_all.push_back(roots2);
 
   fileName = "roots_mn_mx.txt";
   myfile.open(fileName);
@@ -213,19 +239,19 @@ int main(){
   Vec k_spec;
   double K;
   int n = 0;
-  for(int i=0;i < newRoot1.size();i++){
+  for(int i=0;i < roots1.size();i++){
     K = - M_PI/a;
     while(K < M_PI/a){
       K = K + 0.01;
       if(n%2 == 0){
-        e_spec.push_back(root_finder_k(newRoot1[n],newRoot2[n],K,&func3));
+        e_spec.push_back(root_finder_k(roots1[n],roots2[n],K,&func3));
         k_spec.push_back(K);
       } else if(n%2 != 0){
-          e_spec.push_back(root_finder_k(newRoot2[n],newRoot1[n],K,&func3));
+          e_spec.push_back(root_finder_k(roots2[n],roots2[n],K,&func3));
           k_spec.push_back(K);
       }
     }
-    cout<<"N: "<<n<<endl;
+    //cout<<"N: "<<n<<endl;
     n = n+1;
   }
   band.push_back(e_spec);
